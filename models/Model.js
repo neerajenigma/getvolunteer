@@ -120,6 +120,10 @@ const jobSchema = new mongoose.Schema({
         type: Date,
         require: [true,"please enter heading of the job"]
     },
+    postDate:{
+        type: Date,
+        require: [true,"please enter heading of the job"]
+    },
     status:{
         type:String,
         default: ""
