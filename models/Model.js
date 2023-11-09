@@ -4,9 +4,9 @@ const bcrypt = require("bcrypt");
 const { default: isEmail } = require("validator/lib/isEmail");
 
 const userSchema = new mongoose.Schema({
-    userId:{
-        // type:String,
-        // required: [true, 'please enter an userId']
+    _id: {
+        type:String,
+        required: [true, 'error in generating user _id']
     },
     email: {
         type: String,
@@ -65,7 +65,7 @@ const userSchema = new mongoose.Schema({
         // required: [true,'please enter your department']
     },
     semester: {
-        type: String,
+        type: Number,
         default: ""
         // required: [true,'please enter your department']
     },
@@ -76,18 +76,15 @@ const userSchema = new mongoose.Schema({
     gender: {
         type: String,
         default: ""
-    },
-    gender: {
-        type: String,
-        default: ""
     }
 })
 
 const jobSchema = new mongoose.Schema({
-    jobId:{
-
+    _id: {
+        type:String,
+        required: [true, 'error in generating job _id']
     },
-    postedBy:{
+    facultyId:{
 
     },
     heading:{
@@ -126,21 +123,24 @@ const jobSchema = new mongoose.Schema({
     },
     status:{
         type:String,
-        default: ""
+        default: "active"
     },
     image:{
-
+        type:String,
+        default: ""
     },
     location:{
-
+        type:String,
+        default: ""
     }
 })
 
 const applicationSchema = new mongoose.Schema({
-    applicationId:{
-
+    _id: {
+        type:String,
+        required: [true, 'error in generating application _id']
     },
-    applicantId:{
+    studentId:{
         
     },
     jobId:{
@@ -158,24 +158,24 @@ const applicationSchema = new mongoose.Schema({
     }
 })
 
-const systemSchema = new mongoose.Schema({
-    findMe:{
-        type:String,
-        default:"me"
-    },
-    jobIdCounter:{
-        type:Number,
-        default:0
-    },
-    userIdCounter:{
-        type:Number,
-        default:0
-    },
-    applicationIdCounter:{
-        type:Number,
-        default:0
-    }
-})
+// const systemSchema = new mongoose.Schema({
+//     findMe:{
+//         type:String,
+//         default:"me"
+//     },
+//     jobIdCounter:{
+//         type:Number,
+//         default:0
+//     },
+//     userIdCounter:{
+//         type:Number,
+//         default:0
+//     },
+//     applicationIdCounter:{
+//         type:Number,
+//         default:0
+//     }
+// })
 
 userSchema.pre('save', async function (next) {
     const salt = await bcrypt.genSalt();
@@ -186,5 +186,5 @@ userSchema.pre('save', async function (next) {
 const user = new mongoose.model("USER", userSchema)
 const job = new mongoose.model("JOB", jobSchema)
 const application = new mongoose.model("APPLICATION", applicationSchema)
-const system = new mongoose.model("SYSTEM", systemSchema)
-module.exports = { user, job, application, system }
+// const system = new mongoose.model("SYSTEM", systemSchema)
+module.exports = { user, job, application }

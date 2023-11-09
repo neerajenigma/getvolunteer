@@ -9,7 +9,7 @@ const middle = async (req, res, next) => {
         const token = await req.cookies.user;
         jwt.verify(token, secreat, async function (err, decodedtoken) {
             try {
-                if (err && req.path !== "/signup" && req.path !== "/signin") {
+                if (err && req.path !== "/signup" && req.path !== "/signin" && !(req.path ==="/job" && req.method === 'GET')) {
                     console.log("err and signup");
                     const error = new customError("kindly login first!", 401, "all");
                     throw error

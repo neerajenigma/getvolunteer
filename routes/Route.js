@@ -1,10 +1,10 @@
 const express = require("express");
 const router = new express.Router();
 const customError = require("../customError/CustomError");
-const { user, job, application, system } = require("../models/Model");
+const { user, job, application } = require("../models/Model");
 const mongoose = require('mongoose');
 const jwtAuthenticator = require("../middleware/JwtAuthentication");
-// const validationMiddleware = require("../middleware/ValidationMiddleware.js");
+const validationMiddleware = require("../middleware/ValidationMiddleware.js");
 const errorHandling = require("../middleware/ErrorHandling.js");
 const cookieParser = require('cookie-parser');
 const jwt = require("jsonwebtoken");
@@ -12,6 +12,24 @@ const bcrypt = require("bcrypt");
 const secreat = "this is your secreat";
 router.use(cookieParser())
 
+const generateUserID=()=> {
+    const min = 100000; // Minimum 6-digit number
+    const max = 999999; // Maximum 6-digit number
+  
+    const randomNum = Math.floor(Math.random() * (max - min + 1)) + min;
+    const userID = randomNum.toString(); // Convert the number to a string
+    return userID;
+}
+
+const generateJobID=()=> {
+    const min = 10000000; // Minimum 6-digit number
+    const max = 99999999; // Maximum 6-digit number
+  
+    const randomNum = Math.floor(Math.random() * (max - min + 1)) + min;
+    const jobID = randomNum.toString(); // Convert the number to a string
+  
+    return jobID;
+}
 
 createtoken = (id) => {
     const token = jwt.sign({ id }, secreat, {
@@ -20,40 +38,52 @@ createtoken = (id) => {
     return token;
 }
 
-const getSystemObject = async () => {
-    let systemObject = await system.findOne({ findMe: "me" });
-    console.log(systemObject,"---")
-    while (!systemObject) {
-        const firstId = await system.create({});
-        if (firstId) systemObject = await system.findOne({ findMe: "me" });
-        else {
-            console.log("error in creating first object");
-            break;
-        }
-    }
-    return systemObject;
-}
+// const getSystemObject = async () => {
+//     let systemObject = await system.findOne({ findMe: "me" });
+//     console.log(systemObject,"---")
+//     while (!systemObject) {
+//         const firstId = await system.create({});
+//         if (firstId) systemObject = await system.findOne({ findMe: "me" });
+//         else {
+//             console.log("error in creating first object");
+//             break;
+//         }
+//     }
+//     return systemObject;
+// }
 // router.get("/test", async (req, res, next) => {
 //     console.log("hooooooooooooooooo");
 //     return res.send("hello")
 // })
 router.use(jwtAuthenticator);
-router.post("/signup", /*validationMiddleware,*/ async (req, res, next) => {
+router.post("/signup", validationMiddleware, async (req, res, next) => {
     try {
         console.log("------signupreq------");
         console.log(req.body);
-        const systemObject =await getSystemObject();
-        if (!systemObject) res.send(202);
-        const newUserId = systemObject.userIdCounter + 1;
+        // const systemObject =await getSystemObject();
+        // if (!systemObject) res.send(202);
+        let newUserId=generateUserID();
+        while(true){
+            const exist = await user.findOne({ '_id': newUserId });
+            if(exist){
+                newUserId=generateUserID();
+            }
+            else break;
+        }
+        // const newUserId = systemObject.userIdCounter + 1;
         // console.log(systemObject,newUserId);
-        const reqBody = { ...req.body, userId: newUserId };
+        const reqBody = { ...req.body, _id: newUserId };
         // console.log(reqBody);
+        if(reqBody.userType==="admin"){
+            throw new customError("admin not allowed to do this request", 403);
+        }
         const createdUser = await user.create(reqBody);
         console.log(createdUser);
         if (createdUser) {
-            const a=await system.updateOne({'_id':systemObject._id},{userIdCounter:newUserId});
+            // const a=await system.updateOne({'_id':systemObject._id},{userIdCounter:newUserId});
             // console.log(newSystemObject,a);
-            if(a.modifiedCount==1)res.status(200).json({ success: true });
+            // if(a.modifiedCount==1)
+            res.status(200).json({ success: true });
         }
     }
     catch (error) {
@@ -112,36 +142,42 @@ router.post("/signin", async (req, res, next) => {
 // view users
 
 
-router.post("/job", /*validationMiddleware,*/ async (req, res, next) => {
+router.post("/job", validationMiddleware, async (req, res, next) => {
     try {
         console.log("-------postJobreqrecieved--------");
         // console.log(req.body);
         const reqBody = req.body;
         // console.log(reqBody)
-        const systemObject = await getSystemObject();
-        if (!systemObject) res.send(202);
-        const newJobId = systemObject.jobIdCounter + 1;
+        // const systemObject = await getSystemObject();
+        // if (!systemObject) res.send(202);
+        // const newJobId = systemObject.jobIdCounter + 1;
+        let newJobId=generateJobID();
+        while(true){
+            const exist = await user.findOne({ '_id': newJobId });
+            if(exist){
+                newJobId=generateJobID();
+            }
+            else break;
+        }
         const currentUserId = reqBody.user;
         const currentUser = await user.findOne({ '_id': currentUserId })
         // console.log(currentUser);
         if (!currentUser) res.redirect('/logout');
         else if (currentUser && reqBody) {
             // console.log(reqBody);
-            if (currentUser.userType !== "faculty") {
-                throw new customError("u r not allowed to do this request", 403);
-            }
-            if (reqBody.startingDate > reqBody.endingDate) {
-                throw new customError("ending date must not be before starting date", 400, "ending date");
-            }
-            if (reqBody.registrationStartingDate > reqBody.registrationEndingDate) {
-                throw new customError("reginstration ending date must not be before registration starting date", 400, "registration ending date");
-            }
             const now = Date.now();
             const istOffset = 5.5 * 60 * 60 * 1000;
             const date = new Date(now + istOffset).toISOString();
+            if (currentUser.userType !== "faculty") {
+                throw new customError("u r not allowed to do this request", 403);
+            }
+            if (req.body.registrationStartingDate<date.substring(0, 10)) {
+                errors["registrationStartingDate"]="reginstration starting date can'nt be a past date"
+                // throw new customError("reginstration starting date can'nt be a past date", 400, "registration starting date");
+            }
             const newJob = {
-                jobId: newJobId,
-                postedBy: currentUser._id,
+                _id: newJobId,
+                facultyId: currentUser._id,
                 heading: reqBody.heading,
                 type: reqBody.type,
                 description: reqBody.description,
@@ -157,9 +193,10 @@ router.post("/job", /*validationMiddleware,*/ async (req, res, next) => {
             }
             const createdJob = await job.create(newJob);
             if (createdJob) {
-                const a=await system.updateOne({'_id':systemObject._id},{jobIdCounter:newJobId});
+                // const a=await system.updateOne({'_id':systemObject._id},{jobIdCounter:newJobId});
                 // console.log(newSystemObject,a);
-                if(a.modifiedCount==1)res.status(200).json({ success: true });
+                // if(a.modifiedCount==1)
+                res.status(200).json({ success: true });
             }
         }
     }
@@ -169,7 +206,7 @@ router.post("/job", /*validationMiddleware,*/ async (req, res, next) => {
     }
 })
 
-router.patch("/job/:jobId", /*validationMiddleware,*/  async (req, res, next) => {
+router.patch("/job/:jobId", validationMiddleware, async (req, res, next) => {
     try {
         console.log("-------jobeditreqrecieved--------");
         // console.log(req.body);
@@ -181,19 +218,13 @@ router.patch("/job/:jobId", /*validationMiddleware,*/  async (req, res, next) =>
         // reqBody['status'] = "pending";
         // console.log(reqBody)
         const currentUser = await user.findOne({ '_id': currentUserId })
+        const currentJob = await job.findOne({ '_id': jobId })
         // console.log(currentUser);
         if (!currentUser) res.redirect('/logout');
         else if (currentUser && reqBody) {
-            if (currentJob.postedBy != currentUserId) {
+            if (currentJob.facultyId != currentUserId) {
                 throw new customError("you are not allowed for modifying this job!", 403)
             }
-            if (reqBody.startingDate > reqBody.endingDate) {
-                throw new customError("ending date must not be before starting date", 400, "ending date");
-            }
-            if (reqBody.registrationStartingDate > reqBody.registrationEndingDate) {
-                throw new customError("reginstration ending date must not be before registration starting date", 400, "registration ending date");
-            }
-            // console.log(reqBody);
             
             const updatedJob = await job.findByIdAndUpdate(jobId, reqBody, { new: true });
             if (updatedJob) return res.status(200).json({
@@ -216,7 +247,7 @@ router.delete("/job/:jobId", async (req, res, next) => {
         if (!currentJob) {
             throw new customError("job not found!", 404)
         }
-        if (currentJob.postedBy != currentUserId) {
+        if (currentJob.facultyId != currentUserId) {
             throw new customError("you are not allowed for delete this job!", 403)
         }
         const deletedJob = await job.deleteOne({ '_id': jobId });
@@ -235,7 +266,7 @@ router.get("/job/:jobId", async (req, res, next) => {
         const currentUser = await user.findOne({ '_id': currentUserId })
         if (!currentUser) res.redirect("/logout");
         else {
-            const currentJob = await job.findOne({ '_id': jobId })
+            const currentJob = await job.findOne({'_id': jobId})
             if (!currentJob) {
                 throw new customError("job not found", 404)
             }
@@ -250,18 +281,24 @@ router.get("/job/:jobId", async (req, res, next) => {
 router.get("/job", async (req, res, next) => {
     try {
         console.log("-------alljob req recieved------");
-        const currentUserId = req.body.user;
-        const currentUser = await user.findOne({ '_id': currentUserId })
-        if (!currentUser) res.redirect('/logout');
-        else {
-            job.find({})
-                .exec(function (err, jobs) {
-                    if (err) {
-                        throw (err);
-                    }
-                    else {
-                        return res.status(200).send(jobs)
-                    }
+        let reqQuery = {}
+        if(req.body.user){
+            const currentUserId = req.body.user;
+            const currentUser = await user.findOne({ '_id': currentUserId })
+            if (!currentUser) res.redirect('/logout');
+        // console.log(currentUserId)
+            if(currentUser.userType=="faculty"){
+                reqQuery["facultyId"]=currentUserId
+            }
+        }
+        if(1){
+            job.find(reqQuery)
+                .exec()
+                .then(jobs=> {
+                    return res.status(200).send(jobs)        
+                })
+                .catch(err=>{
+                    throw (err);
                 })
         }
     }
@@ -270,16 +307,17 @@ router.get("/job", async (req, res, next) => {
     }
 })
 
-router.post("/application", /*validationMiddleware,*/  async (req, res, next) => {
+router.post("/application", async (req, res, next) => {
     try {
         console.log("-------postapplicationreqrecieved--------");
         // console.log(req.body);
-        const reqBody = req.body;
+        const reqBody = await req.body;
         // console.log(reqBody)
-        const systemObject = await getSystemObject();
-        if (!systemObject) res.send(202);
-        const newApplicationId = systemObject.applicationIdCounter + 1;
+        // const systemObject = await getSystemObject();
+        // if (!systemObject) res.send(202);
+        // const newApplicationId = systemObject.applicationIdCounter + 1;
         // const reqBody = { ...req.body, userId:newUserId };
+        
         const currentUserId = reqBody.user;
         const currentUser = await user.findOne({ '_id': currentUserId })
         // console.log(currentUser);
@@ -288,28 +326,42 @@ router.post("/application", /*validationMiddleware,*/  async (req, res, next) =>
             throw new customError("you are not allowed for apply this job!", 403)
         }
         const currentJobId = reqBody.jobId;
+        console.log(currentJobId)
         const currentJob = await job.findOne({ '_id': currentJobId })
         // console.log(currentUser);
         if (!currentJob){
             throw new customError("job not found", 404)
         }
-        else if (currentUser && reqBody) {
+
+        let newApplicationId=generateJobID();
+        while(true){
+            const exist = await user.findOne({ '_id': newApplicationId });
+            if(exist){
+                newApplicationId=generateJobID();
+            }
+            else break;
+        }
+        if (currentUser && reqBody && currentJob) {
             // console.log(reqBody);
             const now = Date.now();
             const istOffset = 5.5 * 60 * 60 * 1000;
             const date = new Date(now + istOffset).toISOString();
+            if((currentJob.registrationEndingDate.toISOString().substring(0, 10) > new Date().toISOString().substring(0, 10))){
+                throw new customError("you can't apply after registration ending date",403);
+            }
             const newApplication = {
-                applicantId: newApplicationId,
+                _id: newApplicationId,
                 jobId: reqBody.jobId,
-                facultyId: reqBody.facultyId,
+                facultyId: currentJob.facultyId,
                 status: "pending",
                 applyDate: date
             }
             const createdApplication = await application.create(newApplication);
             if (createdApplication) {
-                const a=await system.updateOne({'_id':systemObject._id},{applicationIdCounter:newApplicationId});
+                // const a=await system.updateOne({'_id':systemObject._id},{applicationIdCounter:newApplicationId});
                 // console.log(newSystemObject,a);
-                if(a.modifiedCount==1)res.status(200).json({ success: true });
+                // if(a.modifiedCount==1)
+                res.status(200).json({ success: true });
             };
         }
     }
@@ -322,15 +374,16 @@ router.post("/application", /*validationMiddleware,*/  async (req, res, next) =>
 router.delete("/application/:applicationId", async (req, res, next) => {
     try {
         console.log("-------entered in application delete req-------");
-        const applicationId = req.params.applicantionId;
+        const applicationId = req.params.applicationId;
         const currentUserId = req.body.user;
+        // console.log(applicationId,currentUserId)
         const currentApplication = await application.findOne({ '_id': applicationId })
         if (!currentApplication) {
             throw new customError("Application not found!", 404)
         }
         const currentUser = await user.findOne({ '_id': currentUserId });
         if (!currentUser) res.redirect('/logout');
-        if (!(currentApplication.applicantId == currentUserId || currentUser.userType == "admin")) {
+        if (!(currentApplication.studentId == currentUserId || currentUser.userType == "admin")) {
             throw new customError("you are not allowed for delete this Application!", 403)
         }
         const deletedApplication = await application.deleteOne({ '_id': applicationId });
@@ -353,7 +406,7 @@ router.patch("/application/:applicationId", async (req, res, next) => {
         if (!currentApplication) {
             throw new customError("application not found", 404);
         }
-        if (currentApplication.applicantId === currentUserId) {
+        if (currentApplication.studentId === currentUserId) {
             if(!(reqBody.status==="cancelled" || reqBody.status==="pending")){
             throw new customError("you are not allowed for this request!", 403)
         }}
@@ -361,7 +414,10 @@ router.patch("/application/:applicationId", async (req, res, next) => {
             if(!(reqBody.status==="rejected" || reqBody.status==="accepted")){
             throw new customError("you are not allowed for this request!", 403)
         }}
-        else {
+        else if(currentUser.userType!=="admin"){
+            throw new customError("you are not allowed for this request!", 403)
+        }
+        if(reqBody){
             delete reqBody.user;
             const modifiedApplication = { ...currentApplication._doc, ...reqBody };
             const updatedApplication = await application.findByIdAndUpdate(applicationId, modifiedApplication, { new: true });
@@ -386,7 +442,7 @@ router.get("/application/:applicationId", async (req, res, next) => {
             if (!currentApplication) {
                 throw new customError("job not found", 404)
             }
-            else if(!(currentApplication.applicantId == currentUserId || currentApplication.facultyId== currentUserId || currentUser.userType==admin)) {
+            else if(!(currentApplication.studentId == currentUserId || currentApplication.facultyId== currentUserId || currentUser.userType==admin)) {
                 throw new customError("you are not allowed for viewing this job!", 403)
             }
             return res.status(200).send(currentApplication);
@@ -405,7 +461,7 @@ router.get("/application", async (req, res, next) => {
         const currentUser = await user.findOne({ '_id': currentUserId })
 
         if (currentUser.userType === "student") {
-            reqQuery['applicantId'] = currentUser._id;
+            reqQuery['studentId'] = currentUser._id;
         }
         else if (currentUser.userType === "faculty") {
             reqQuery['facultyId'] = currentUser._id;
@@ -414,13 +470,12 @@ router.get("/application", async (req, res, next) => {
         else {
             // console.log(reqQuery);
             application.find(reqQuery)
-                .exec(function (err, applications) {
-                    if (err) {
-                        throw (err);
-                    }
-                    else {
-                        return res.status(200).send(applications)
-                    }
+                .exec()
+                .then(applications=> {
+                    return res.status(200).send(applications)        
+                })
+                .catch(err=>{
+                    throw (err);
                 })
 
         }
@@ -452,7 +507,7 @@ router.get("/user/:userId", async (req, res, next) => {
     }
 })
 
-router.patch("/user", /*validationMiddleware,*/  async (req, res, next) => {
+router.patch("/user", validationMiddleware,  async (req, res, next) => {
     try {
         console.log("--------edit myprofile req recieved--------");
         let reqBody = req.body;
@@ -462,9 +517,6 @@ router.patch("/user", /*validationMiddleware,*/  async (req, res, next) => {
         let currentUser = await user.findOne({ '_id': currentUserId })
         // console.log(currentUser);
         if (!currentUser) res.redirect('/logout');
-        if (currentUser._id !== currentUserId) {
-            throw new customError("you are not allowed for modifying user details!", 403)
-        }
         if (currentUser && reqBody) {
             for (let prop in reqBody) {
                 currentUser[prop] = reqBody[prop];
@@ -481,7 +533,6 @@ router.patch("/user", /*validationMiddleware,*/  async (req, res, next) => {
         next(err);
     }
 })
-
 
 router.get("/myself", async (req, res, next) => {
     try {
@@ -513,19 +564,14 @@ router.get("/user", async (req, res, next) => {
             throw new customError("you are not allowed for this request!", 403);
         }
         else {
-            user.find({})
-                // .select('name email status userType contact')
-                // .skip((pageNumber - 1) * pageSize)
-                // .limit(pageSize)
-                .exec(function (err, users, next) {
-                    if (err) {
-                        next(err);
-                    }
-                    else {
-                        res.status(200).send(users)
-                    }
+            user.find(reqQuery)
+                .exec()
+                .then(users=> {
+                    return res.status(200).send(users)        
                 })
-
+                .catch(err=>{
+                    throw (err);
+                })
         }
     }
     catch (err) {
@@ -547,5 +593,4 @@ router.get("/logout", async (req, res) => {
 })
 
 router.use(errorHandling)
-
 module.exports = router;
