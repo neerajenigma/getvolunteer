@@ -15,7 +15,7 @@ const cookieparser=require('cookie-parser');
 console.log("req receive");
 app.use(cors({
     credentials: true,
-    origin: `http://localhost:8000`,
+    origin: true,
     optionsSuccessStatus: 200
   }));
 

@@ -21,6 +21,7 @@ const middle = async (req, res, next) => {
                 }
                 else if (!err) {
                     console.log("no err and no signup");
+                    // console.log(req.body)
                     const p = await decodedtoken.id;
                     req.body = await { ...req.body, "user": p };
 

@@ -171,13 +171,14 @@ router.post("/job", validationMiddleware, async (req, res, next) => {
             if (currentUser.userType !== "faculty") {
                 throw new customError("u r not allowed to do this request", 403);
             }
-            if (req.body.registrationStartingDate<date.substring(0, 10)) {
-                errors["registrationStartingDate"]="reginstration starting date can'nt be a past date"
-                // throw new customError("reginstration starting date can'nt be a past date", 400, "registration starting date");
-            }
+            // if (req.body.registrationStartingDate<date.substring(0, 10)) {
+            //     // errors["registrationStartingDate"]="reginstration starting date can'nt be a past date"
+            //     // throw new customError("reginstration starting date can'nt be a past date", 400, "registration starting date");
+            // }
             const newJob = {
                 _id: newJobId,
                 facultyId: currentUser._id,
+                facultyName:currentUser.name,
                 heading: reqBody.heading,
                 type: reqBody.type,
                 description: reqBody.description,
@@ -191,6 +192,7 @@ router.post("/job", validationMiddleware, async (req, res, next) => {
                 location: reqBody.location,
                 postDate: date
             }
+            // console.log(newJob)
             const createdJob = await job.create(newJob);
             if (createdJob) {
                 // const a=await system.updateOne({'_id':systemObject._id},{jobIdCounter:newJobId});
@@ -310,7 +312,7 @@ router.get("/job", async (req, res, next) => {
 router.post("/application", async (req, res, next) => {
     try {
         console.log("-------postapplicationreqrecieved--------");
-        // console.log(req.body);
+        console.log(req.body);
         const reqBody = await req.body;
         // console.log(reqBody)
         // const systemObject = await getSystemObject();
@@ -326,11 +328,15 @@ router.post("/application", async (req, res, next) => {
             throw new customError("you are not allowed for apply this job!", 403)
         }
         const currentJobId = reqBody.jobId;
-        console.log(currentJobId)
+        console.log(reqBody)
         const currentJob = await job.findOne({ '_id': currentJobId })
         // console.log(currentUser);
         if (!currentJob){
             throw new customError("job not found", 404)
+        }
+        const pastApplication=await application.findOne({ studentId: currentUserId });
+        if(pastApplication){
+            throw new customError("you are not allowed for apply more then once for any job!", 403)
         }
 
         let newApplicationId=generateJobID();
@@ -353,15 +359,18 @@ router.post("/application", async (req, res, next) => {
                 _id: newApplicationId,
                 jobId: reqBody.jobId,
                 facultyId: currentJob.facultyId,
+                studentId:currentUserId,
                 status: "pending",
                 applyDate: date
             }
             const createdApplication = await application.create(newApplication);
             if (createdApplication) {
-                // const a=await system.updateOne({'_id':systemObject._id},{applicationIdCounter:newApplicationId});
-                // console.log(newSystemObject,a);
-                // if(a.modifiedCount==1)
-                res.status(200).json({ success: true });
+                const updJob={...currentJob._doc,applicant: currentJob.applicant+1}
+                console.log(updJob)
+                const updatedJob = await job.findByIdAndUpdate(currentJobId, updJob, { new: true });
+                if (updatedJob) return res.status(200).json({
+                    success: true
+                });
             };
         }
     }
@@ -466,6 +475,9 @@ router.get("/application", async (req, res, next) => {
         else if (currentUser.userType === "faculty") {
             reqQuery['facultyId'] = currentUser._id;
         }
+        if (!req.body.hasOwnProperty("jobId")) {
+            reqQuery['jobId']=req.body.jobId;
+        }
         if (!currentUser) res.redirect('/logout');
         else {
             // console.log(reqQuery);
@@ -478,6 +490,29 @@ router.get("/application", async (req, res, next) => {
                     throw (err);
                 })
 
+        }
+    }
+    catch (err) {
+        next(err);
+    }
+})
+
+router.get("/application/applied/:jobId", async (req, res, next) => {
+    try {
+        console.log("-------count application req recieved------");
+        let reqQuery = {jobId:req.params.jobId}
+        const currentUserId = req.body.user;
+        const currentUser = await user.findOne({ '_id': currentUserId })
+
+        reqQuery['studentId'] = currentUser._id;
+        // }
+        if (!currentUser) res.redirect('/logout');
+        else {
+            // console.log(reqQuery);
+            // const countr=application.find(reqQuery).count()
+            const countr= await application.count(reqQuery)
+            console.log(countr)
+            return res.status(200).send(JSON.stringify(countr))
         }
     }
     catch (err) {
@@ -585,7 +620,9 @@ router.get("/logout", async (req, res) => {
         return res
             .clearCookie("user")
             .status(200)
-            .send("Successfully logged out");
+            .json({
+                success: "successfully logout"
+            })
     }
     catch (err) {
         res.status(401).send(err)

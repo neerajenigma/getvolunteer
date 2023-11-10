@@ -85,7 +85,12 @@ const jobSchema = new mongoose.Schema({
         required: [true, 'error in generating job _id']
     },
     facultyId:{
-
+        type:String,
+        required: [true, 'error in generating job _id']
+    },
+    facultyName:{
+        type:String,
+        required: [true, 'error in generating job _id']
     },
     heading:{
         type: String,
@@ -132,6 +137,10 @@ const jobSchema = new mongoose.Schema({
     location:{
         type:String,
         default: ""
+    },
+    applicant:{
+        type:Number,
+        default:0
     }
 })
 
@@ -141,16 +150,20 @@ const applicationSchema = new mongoose.Schema({
         required: [true, 'error in generating application _id']
     },
     studentId:{
-        
+        type:String,
+        required: [true, 'student id is not appended in application']
     },
     jobId:{
-
+        type:String,
+        required: [true, 'job id is not appended in application']
     },
     facultyId:{
-        
+        type:String,
+        required: [true, 'faculty id is not appended in application']
     },
     status:{
-        type:String
+        type:String,
+        required:[true, "status not appended in application"]
     },
     applyDate:{
         type: Date,
