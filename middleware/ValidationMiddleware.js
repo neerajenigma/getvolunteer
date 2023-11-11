@@ -26,7 +26,7 @@ const validationMiddleware = async (req, res, next) => {
     if ("contact" in req.body && (req.body.contact < 1000000000 || req.body.contact > 9999999999)) {
         errors["contact"] = "invalid contact"
     }
-    if ("program" in req.body && (!(["MTech", "BTech"].includes(req.body.program)))) {
+    if ("program" in req.body && (!(["M.Tech", "B.Tech"].includes(req.body.program)))) {
         errors["hostel"] = "invalid program"
     }
     if ("semester" in req.body && (req.body.semester<1 && req.body.semester>8)) {

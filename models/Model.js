@@ -141,6 +141,10 @@ const jobSchema = new mongoose.Schema({
     applicant:{
         type:Number,
         default:0
+    },
+    vacancy:{
+        type:Number,
+        default:0
     }
 })
 
@@ -168,6 +172,14 @@ const applicationSchema = new mongoose.Schema({
     applyDate:{
         type: Date,
         require: [true,"please enter heading of the job"]
+    },
+    notification:{
+        type:Boolean,
+        default:false
+    },
+    notificationValue:{
+        type:String,
+        default:""
     }
 })
 
