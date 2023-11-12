@@ -415,21 +415,25 @@ router.patch("/application/:applicationId", async (req, res, next) => {
         const currentApplication = await application.findOne({ '_id': applicationId })
         let reqBody = req.body;
         let currentJob = null;
+        console.log(req.body);
         if (!currentUser) res.redirect("/logout");
         if (!currentApplication) {
             throw new customError("application not found", 404);
         }
         if (currentApplication.studentId === currentUserId) {
-            if (!(reqBody.status === "withdrawn" || reqBody.status === "pending")) {
+            if (reqBody.hasOwnProperty('status') && !(reqBody.status === "withdrawn" || reqBody.status === "pending")) {
                 throw new customError("you are not allowed for this request!", 403)
             }
         }
         else if (currentApplication.facultyId === currentUserId) {
-            if (!(reqBody.status === "rejected" || reqBody.status === "accepted")) {
+            if (reqBody.hasOwnProperty('status') && !(reqBody.status === "rejected" || reqBody.status === "accepted")) {
                 throw new customError("you are not allowed for this request!", 403)
             }
         }
         else if (currentUser.userType !== "admin") {
+            throw new customError("you are not allowed for this request!", 403)
+        }
+        if (reqBody.hasOwnProperty('notification') && (reqBody.notification == false) && currentApplication.studentId !== currentUserId) {
             throw new customError("you are not allowed for this request!", 403)
         }
         const decreaseCount = (currentUser.userType === "student" && reqBody.status == "withdrawn" && currentApplication.status !== "withdrawn") ? true : false
@@ -653,7 +657,7 @@ router.get("/application_student", async (req, res, next) => {
                         //     semester: users[a].semester
                         // }
                         // console.log(newd)
-                        returnData.push({...jobs[b],applicationId:applications[a]._id,notification:applications[a].notification,notificationValue:applications[a].notificationValue})
+                        returnData.push({ ...jobs[b]._doc, applicationStatus: applications[a].status, applicationId: applications[a]._id, notification: applications[a].notification, notificationValue: applications[a].notificationValue })
                     }
                 }
             }
