@@ -65,8 +65,8 @@ const validationMiddleware = async (req, res, next) => {
     if ("heading" in req.body && (!(nonEmptyStringRegex.test(req.body.heading)))) {
         errors["heading"] = "invalid job heading"
     }
-    if ("type" in req.body && (!(nonEmptyStringRegex.test(req.body.type)))) {
-        errors["personId"] = "invalid job type"
+    if ("type" in req.body && (req.body.type!="virtual" && req.body.type!="onsite")) {
+        errors["type"] = "invalid job type"
     }
     if ("description" in req.body && (!(nonEmptyStringRegex.test(req.body.description)))) {
         errors["description"] = "invalid description"

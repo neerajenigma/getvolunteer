@@ -91,7 +91,7 @@ router.post("/signup", validationMiddleware, async (req, res, next) => {
     }
 })
 
-router.post("/signin", async (req, res, next) => {
+router.post("/signin", validationMiddleware, async (req, res, next) => {
     try {
         console.log("-------entered in sign in req------");
         const email = req.body.email;
@@ -227,11 +227,11 @@ router.patch("/job/:jobId", validationMiddleware, async (req, res, next) => {
         // console.log(currentUser);
         if (!currentUser) res.redirect('/logout');
         else if (currentUser && reqBody) {
-            if (currentJob.facultyId != currentUserId) {
+            if (currentJob.facultyId != currentUserId && currentUser.userType!=="admin") {
                 throw new customError("you are not allowed for modifying this job!", 403)
             }
 
-            const updatedJob = await job.findByIdAndUpdate(jobId, reqBody, { new: true });
+            const updatedJob = await job.findByIdAndUpdate(jobId,{...currentJob,status:reqBody.status}, { new: true });
             if (updatedJob) return res.status(200).json({
                 success: true
             });
@@ -275,6 +275,9 @@ router.get("/job/:jobId", async (req, res, next) => {
             if (!currentJob) {
                 throw new customError("job not found", 404)
             }
+            if(currentJob.status==="inactive"){
+                throw new customError("job has been blocked by admin", 403)
+            }
             return res.status(200).send(currentJob);
         }
     }
@@ -293,7 +296,10 @@ router.get("/job", async (req, res, next) => {
             if (!currentUser) res.redirect('/logout');
             // console.log(currentUserId)
             if (currentUser.userType == "faculty") {
-                reqQuery["facultyId"] = currentUserId
+                reqQuery["facultyId"] = currentUserId;
+            }
+            if(currentUser.userType!=="admin"){
+                reqQuery["status"]="active";
             }
         }
         if (1) {
@@ -336,6 +342,9 @@ router.post("/application", async (req, res, next) => {
         // console.log(currentUser);
         if (!currentJob) {
             throw new customError("job not found", 404)
+        }
+        if (currentJob.status==="inactive") {
+            throw new customError("job has been blocked by admin", 403)
         }
         const pastApplication = await application.findOne({ studentId: currentUserId, jobId: currentJobId });
         if (pastApplication) {
@@ -642,21 +651,8 @@ router.get("/application_student", async (req, res, next) => {
             // console.log(users)
             for (const a in applications) {
                 for (const b in jobs) {
-                    if (jobs[b]._id === applications[a].jobId) {
+                    if (jobs[b]._id === applications[a].jobId && job[b].status==="active") {
                         console.log(applications[a], jobs[b])
-                        // newd = {
-                        //     status: applications[a].status,
-                        //     applicationId: applications[a]._id,
-                        //     jobId: applications[a].jobId,
-                        //     studentId: users[a]._id,
-                        //     facultyId: applications[a].facultyId,
-                        //     name: users[a].name,
-                        //     gender: users[a].gender,
-                        //     program: users[a].program,
-                        //     branch: users[a].branch,
-                        //     semester: users[a].semester
-                        // }
-                        // console.log(newd)
                         returnData.push({ ...jobs[b]._doc, applicationStatus: applications[a].status, applicationId: applications[a]._id, notification: applications[a].notification, notificationValue: applications[a].notificationValue })
                     }
                 }
@@ -751,6 +747,45 @@ router.patch("/user", validationMiddleware, async (req, res, next) => {
     }
     catch (err) {
         next(err);
+    }
+})
+
+router.delete("/user/:userId", async (req, res, next) => {
+    try {
+        console.log("-------entered in user delete req-------");
+        const deleteUserId = req.params.userId;
+        const currentUserId = req.body.user;
+        // console.log(applicationId,currentUserId)
+        const deleteUser = await user.findOne({ '_id': deleteUserId })
+        if (!deleteUser) {
+            throw new customError("user not found!", 404)
+        }
+        const currentUser = await user.findOne({ '_id': currentUserId });
+        if (!currentUser) res.redirect('/logout');
+        if (currentUser.userType !== "admin") {
+            throw new customError("you are not allowed for deleting user!", 403)
+        }
+        const deletedUser = await user.deleteOne({ '_id': deleteUserId });
+        console.log(deletedUser);
+        if (deletedUser) {
+            const appQuery = deleteUser.userType === "student" ? { studentId: deleteUserId } : { facultyId: deleteUserId }
+            const applicationResult = await application.deleteMany(appQuery);
+            if (!applicationResult) throw new customError("unable to delete applications of user", 500)
+            if (deleteUser.userType === "faculty") {
+                const jobResult = await job.deleteMany({ facultyId: deleteUserId });
+                if (!jobResult) throw new customError("unable to delete facultys job", 500)
+                console.log(jobResult);
+            }
+            console.log(applicationResult)
+            // const result = await application.deleteMany({facutltyId:deleteUserId});
+            if (applicationResult) return res.status(200).json({ success: true });
+        }
+        else {
+            throw new customError("unable to delete user", 500)
+        }
+    }
+    catch (error) {
+        next(error);
     }
 })
 

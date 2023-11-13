@@ -32,6 +32,7 @@ const errorHandling = async (error, req, res, next) => {
             });
         }
         if (error.code === 404) {
+            console.log(error)
             return res.status(error.code).json({
                 message: error.message,
                 attribute: error.attribute

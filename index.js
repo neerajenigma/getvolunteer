@@ -1,12 +1,12 @@
-const express=require("express")
-const app=express()
-const cors=require('cors')
-const path=require('path');
+const express = require("express")
+const app = express()
+const cors = require('cors')
+const path = require('path');
 require("./connection/Connection")
-const port=process.env.PORT || 8000
-const router=require("./routes/Route");
+const port = process.env.PORT || 8000
+const router = require("./routes/Route");
 // const midd=require("./middleware/Jwtauth.js");
-const cookieparser=require('cookie-parser');
+const cookieparser = require('cookie-parser');
 
 // const staticpath=path.join(__dirname,"/grocery/build")
 
@@ -14,16 +14,16 @@ const cookieparser=require('cookie-parser');
 // app.use(cors());
 console.log("req receive");
 app.use(cors({
-    credentials: true,
-    origin: true,
-    optionsSuccessStatus: 200
-  }));
+  credentials: true,
+  origin: true,
+  optionsSuccessStatus: 200
+}));
 
 
 //app.use(cookieparser);
 app.use(express.json());
 // app.use(midd);
 app.use(router);
-app.listen(port,()=>{
-    console.log(`server on ${port} has been started.`)
+app.listen(port, () => {
+  console.log(`server on ${port} has been started.`)
 })
